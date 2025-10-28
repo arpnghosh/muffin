@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"unicode"
 
@@ -13,6 +14,15 @@ type document struct {
 	ID   int
 }
 
+// tokenize splits text into searchable tokens
+// by breaking on non-alphanumeric characters.
+// It preserves both letters and numbers, making
+// it suitable for full-text search indexing.
+//
+// Example:
+//
+//	input:  "Hello, World! User123"
+//	output: ["Hello", "World", "User123"]
 func tokenize(text string) []string {
 	return strings.FieldsFunc(text, func(r rune) bool {
 		return !unicode.IsNumber(r) && !unicode.IsLetter(r)
@@ -27,20 +37,27 @@ func lowercaseFilter(tokens []string) []string {
 	return r
 }
 
-var stopwords = map[string]struct{}{
-	"a": {}, "and": {}, "be": {}, "have": {}, "i": {},
-	"in": {}, "of": {}, "that": {}, "the": {}, "to": {},
-}
+/*
+* The first commit contains the stopwords filter.
+* After updating my inverted index type
+* to store the position of each token,
+* I had to remove the stopword filter
+ */
 
-func stopwordFilter(tokens []string) []string {
-	r := make([]string, 0, len(tokens))
-	for _, token := range tokens {
-		if _, ok := stopwords[token]; !ok {
-			r = append(r, token)
-		}
-	}
-	return r
-}
+// var stopwords = map[string]struct{}{
+// 	"a": {}, "and": {}, "be": {}, "have": {}, "i": {},
+// 	"in": {}, "of": {}, "that": {}, "the": {}, "to": {},
+// }
+
+// func stopwordFilter(tokens []string) []string {
+// 	r := make([]string, 0, len(tokens))
+// 	for _, token := range tokens {
+// 		if _, ok := stopwords[token]; !ok {
+// 			r = append(r, token)
+// 		}
+// 	}
+// 	return r
+// }
 
 func stemmerFilter(tokens []string) []string {
 	r := make([]string, len(tokens))
@@ -53,21 +70,20 @@ func stemmerFilter(tokens []string) []string {
 func analyze(text string) []string {
 	tokens := tokenize(text)
 	tokens = lowercaseFilter(tokens)
-	tokens = stopwordFilter(tokens)
+	// tokens = stopwordFilter(tokens)
 	tokens = stemmerFilter(tokens)
 	return tokens
 }
 
-type index map[string][]int
+type index map[string]map[int][]int
 
 func (idx index) add(docs []document) {
 	for _, doc := range docs {
-		for _, token := range analyze(doc.Text) {
-			ids := idx[token]
-			if ids != nil && ids[len(ids)-1] == doc.ID {
-				continue
+		for position, token := range analyze(doc.Text) {
+			if idx[token] == nil {
+				idx[token] = make(map[int][]int)
 			}
-			idx[token] = append(ids, doc.ID)
+			idx[token][doc.ID] = append(idx[token][doc.ID], position)
 		}
 	}
 }
@@ -123,17 +139,20 @@ func union(a []int, b []int) []int {
 	return r
 }
 
-func (idx index) search(text string) []int {
+func (idx index) search(boolOp func([]int, []int) []int, text string) []int {
 	var r []int
 	for _, token := range analyze(text) {
-		if ids, ok := idx[token]; ok {
+		if innerMap, ok := idx[token]; ok {
+			ids := make([]int, 0, len(innerMap))
+			for docId := range innerMap {
+				ids = append(ids, docId)
+			}
+			sort.Ints(ids)
 			if r == nil {
 				r = ids
 			} else {
-				r = intersection(r, ids)
+				r = boolOp(r, ids)
 			}
-		} else {
-			return nil
 		}
 	}
 	return r
@@ -141,9 +160,14 @@ func (idx index) search(text string) []int {
 
 func main() {
 	docs := []document{
-		{Text: "This is a sample document about cats."},
-		{Text: "Another document discussing cats pets."},
-		{Text: "Information on birds discussing and their."},
+		{Text: "This is a sample document about cats."},      // Doc 1: contains "cat"
+		{Text: "Another document discussing cats and dogs."}, // Doc 2: contains "cat", "dog"
+		{Text: "Information about dogs and birds."},          // Doc 3: contains "dog", "bird"
+		{Text: "Cats birds and fish in the wild."},           // Doc 4: contains "cat", "bird", "fish"
+		{Text: "Only fish in this document."},                // Doc 5: contains "fish"
+		{Text: "Dogs and cats living together."},             // Doc 6: contains "dog", "cat"
+		{Text: "Birds of different species."},                // Doc 7: contains "bird"
+		{Text: "Empty document with common words."},
 	}
 
 	for i := range docs {
@@ -153,10 +177,11 @@ func main() {
 	idx := make(index)
 	idx.add(docs)
 
-	results := idx.search("cat")
-	if len(results) == 0 {
-		fmt.Println("search not found")
-	} else {
-		fmt.Println("results found in document:", results)
-	}
+	// Test intersection
+	fmt.Println("Intersection 'cat dog':", idx.search(intersection, "cat dog"))
+	fmt.Println("Intersection 'cat bird':", idx.search(intersection, "cat bird"))
+
+	// Test union
+	fmt.Println("Union 'cat dog':", idx.search(union, "cat dog"))
+	fmt.Println("Union 'cat bird fish':", idx.search(union, "cat bird fish"))
 }

@@ -1,4 +1,4 @@
-# Muffin
+<h1 align="center">Muffin</h1>
 
 <p align="center">
   <img src="public/logo.png" alt="Muffin Logo" width="200">
@@ -6,7 +6,7 @@
 
 ## Project Description
 
-Muffin is a simple full-text search engine implemented in Go. It builds an inverted index from documents, supporting tokenization, stemming, and boolean search operations (intersection for AND, union for OR).
+Muffin is a simple full-text search engine implemented in Go. It builds an inverted index from documents, supporting tokenization, stemming, boolean search operations (intersection for AND, union for OR) and phrase queries where token must appear consecutively.
 
 ## Features
 
@@ -14,6 +14,7 @@ Muffin is a simple full-text search engine implemented in Go. It builds an inver
 - **Stemming**: Uses the Snowball English stemmer to reduce words to their root forms.
 - **Inverted Index**: Stores term positions within documents for efficient searching.
 - **Boolean Search**: Supports intersection (AND) and union (OR) operations on search queries.
+- **Phrase Queries**: Allows searching for phrases where tokens must appear consecutively.
 
 ## Usage
 
@@ -44,6 +45,10 @@ fmt.Println("Documents containing both 'cat' and 'dog':", results)
 // Union (OR) search
 results = idx.search(union, "cat bird fish")
 fmt.Println("Documents containing 'cat', 'bird', or 'fish':", results)
+
+// Phrase query search
+results = idx.PhraseSearch("about cats")
+fmt.Println("Documents containing the phrase 'about cats':", results)
 ```
 
 Run the program with `go run main.go` to see example searches on sample documents.

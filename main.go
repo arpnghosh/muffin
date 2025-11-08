@@ -32,4 +32,8 @@ func main() {
 	// Test union
 	fmt.Println("Union 'cat dog':", idx.Search(internal.Union, "cat dog"))
 	fmt.Println("Union 'cat bird fish':", idx.Search(internal.Union, "cat bird fish"))
+
+	// Phrase search
+	fmt.Println("Phrase search 'cat dog':", idx.PhraseSearch("cat dog"))
+	fmt.Println("Phrase search 'cat bird':", idx.PhraseSearch("cat bird"))
 }
